@@ -191,7 +191,7 @@ class Environment:
 
             reward = np.log(r + eps)
 
-            w2 = w2 / (np.dot(w2, price) + eps)
+            w2 = np.multiply(w2,price) / (np.dot(w2, price) + eps)
             self.t += 1
             if self.t == len(self.states) - 1:
                 not_terminal = 0
