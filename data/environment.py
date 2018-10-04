@@ -122,6 +122,7 @@ class Environment:
                 V_PB=np.ones(self.L)
 
             y=np.ones(1)
+            state=[]
             for asset in codes:
                 asset_data=asset_dict[str(asset)]
                 V_close = np.vstack((V_close, asset_data.ix[t - self.L - 1:t - 1, 'close']))
@@ -144,11 +145,11 @@ class Environment:
                 if 'PB' in features:
                     V_PB=np.vstack((V_PB,asset_data.ix[t-self.L-1:t-1,'PB']))
                 y=np.vstack((y,asset_data.ix[t,'close']/asset_data.ix[t-1,'close']))
-            state = V_close
+            state.append(V_close)
             if 'high' in features:
-                state = np.stack((state,V_high), axis=2)
+                state.append(V_high)
             if 'low' in features:
-                state = np.stack((state,V_low), axis=2)
+                state.append(V_low)
             if 'open' in features:
                 state = np.stack((state,V_open), axis=2)
             if 'TV1' in features:
@@ -163,6 +164,7 @@ class Environment:
                 state = np.stack((state,V_PE), axis=2)
             if 'PB' in features:
                 state = np.stack((state,V_PB), axis=2)
+            state=np.stack(state,axis=1)
             state = state.reshape(1, self.M, self.L, self.N)
             self.states.append(state)
             self.price_history.append(y)
@@ -177,21 +179,23 @@ class Environment:
         if self.FLAG:
             not_terminal = 1
             price = self.price_history[self.t]
+            #price=price+np.stack(np.random.normal(0,0.002,(1,len(price))),axis=1)
             mu = self.cost * (np.abs(w2[0][1:] - w1[0][1:])).sum()
 
-            std = self.states[self.t - 1][0].std(axis=0, ddof=0)
-            w2_std = (w2[0]* std).sum()
+            # std = self.states[self.t - 1][0].std(axis=0, ddof=0)
+            # w2_std = (w2[0]* std).sum()
 
-            #adding risk
-            gamma=0.00
-            risk=gamma*w2_std
+            # #adding risk
+            # gamma=0.00
+            # risk=gamma*w2_std
 
+            risk=0
             r = (np.dot(w2, price)[0] - mu)[0]
 
 
             reward = np.log(r + eps)
 
-            w2 = np.multiply(w2,price) / (np.dot(w2, price) + eps)
+            w2 = w2 / (np.dot(w2, price) + eps)
             self.t += 1
             if self.t == len(self.states) - 1:
                 not_terminal = 0
