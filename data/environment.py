@@ -9,46 +9,75 @@ import pandas as pd
 from math import log
 from datetime import datetime
 import time
+import random
 
 eps=10e-8
 
 def fill_zeros(x):
     return '0'*(6-len(x))+x
 
-class Environment:
-    def __init__(self,start_date,end_date,codes,features,window_length,market):#,test_data,assets_list,M,L,N,start_date,end_date
 
-        #preprocess parameters
+class Environment:
+    def __init__(self):
         self.cost=0.0025
 
+    def get_repo(self,start_date,end_date,codes_num,market):
+        #preprocess parameters
+
         #read all data
-        data=pd.read_csv(r'./data/'+market+'.csv',index_col=0,parse_dates=True,dtype=object)
-        data["code"]=data["code"].astype(str)
+        self.data=pd.read_csv(r'./data/'+market+'.csv',index_col=0,parse_dates=True,dtype=object)
+        self.data["code"]=self.data["code"].astype(str)
         if market=='China':
-            data["code"]=data["code"].apply(fill_zeros)
+            self.data["code"]=self.data["code"].apply(fill_zeros)
 
-        data=data.loc[data["code"].isin(codes)]
-        data[features]=data[features].astype(float)
+        sample_flag=True
+        while sample_flag:
+            codes=random.sample(set(self.data["code"]),codes_num)
+            data2=self.data.loc[self.data["code"].isin(codes)]
 
-        # 生成有效时间
-        start_date = [date for date in data.index if date > pd.to_datetime(start_date)][0]
-        end_date = [date for date in data.index if date < pd.to_datetime(end_date)][-1]
-        data=data[start_date.strftime("%Y-%m-%d"):end_date.strftime("%Y-%m-%d")]
+            # 生成有效时间
+            date_set=set(data2.loc[data2['code']==codes[0]].index)
+            for code in codes:
+                date_set=date_set.intersection((set(data2.loc[data2['code']==code].index)))
+            if len(date_set)>1200:
+                sample_flag=False
+
+        date_set=date_set.intersection(set(pd.date_range(start_date,end_date)))
+        self.date_set = list(date_set)
+        self.date_set.sort()
+
+        train_start_time = self.date_set[0]
+        train_end_time = self.date_set[int(len(self.date_set) / 6) * 5 - 1]
+        test_start_time = self.date_set[int(len(self.date_set) / 6) * 5]
+        test_end_time = self.date_set[-1]
+
+        return train_start_time,train_end_time,test_start_time,test_end_time,codes
+
+    def get_data(self,start_time,end_time,features,window_length,market,codes):
+        self.codes=codes
+
+        self.data = pd.read_csv(r'./data/' + market + '.csv', index_col=0, parse_dates=True, dtype=object)
+        self.data["code"] = self.data["code"].astype(str)
+        if market == 'China':
+            self.data["code"] = self.data["code"].apply(fill_zeros)
+
+        self.data[features]=self.data[features].astype(float)
+        self.data=self.data[start_time.strftime("%Y-%m-%d"):end_time.strftime("%Y-%m-%d")]
+        data=self.data
         #TO DO:REFINE YOUR DATA
 
         #Initialize parameters
         self.M=len(codes)+1
         self.N=len(features)
-        self.L=window_length
-
+        self.L=int(window_length)
+        self.date_set=pd.date_range(start_time,end_time)
         #为每一个资产生成数据
         asset_dict=dict()#每一个资产的数据
-        datee=data.index.unique()
-        self.date_len=len(datee)
         for asset in codes:
-            asset_data=data[data["code"]==asset].reindex(datee).sort_index()#加入时间的并集，会产生缺失值pd.to_datetime(self.date_list)
+            asset_data=data[data["code"]==asset].reindex(self.date_set).sort_index()#加入时间的并集，会产生缺失值pd.to_datetime(self.date_list)
+            asset_data=asset_data.resample('D').mean()
             asset_data['close']=asset_data['close'].fillna(method='pad')
-            base_price = asset_data.ix[end_date, 'close']
+            base_price = asset_data.ix[-1, 'close']
             asset_dict[str(asset)]= asset_data
             asset_dict[str(asset)]['close'] = asset_dict[str(asset)]['close'] / base_price
 
@@ -61,46 +90,19 @@ class Environment:
             if 'open' in features:
                 asset_dict[str(asset)]['open']=asset_dict[str(asset)]['open']/base_price
 
-            if 'PE' in features:
-                asset_data['PE']=asset_data['PE'].fillna(method='pad')
-                base_PE=asset_data.ix[end_date,'PE']
-                asset_dict[str(asset)]['PE'] = asset_dict[str(asset)]['PE'] / base_PE
-
-            if 'PB' in features:
-                asset_data['PB'] = asset_data['PB'].fillna(method='pad')
-                base_PB=asset_data.ix[end_date,'PB']
-                asset_dict[str(asset)]['PB'] = asset_dict[str(asset)]['PB'] / base_PB
-
-            if 'TR'in features:
-                asset_data['TR'] = asset_data['TR'].fillna(method='pad')
-                base_TR=asset_data.ix[end_date,'TR']
-
-            if 'TV1' in features:
-                base_TV1=asset_data.ix[end_date,'TV1']
-                asset_dict[str(asset)]['TV1'] = asset_dict[str(asset)]['TV1'] / base_TV1
-
-            if 'TV2' in features:
-                base_TV2=asset_data.ix[end_date,'TV2']
-                asset_dict[str(asset)]['TV2'] = asset_dict[str(asset)]['TV2'] / base_TV2
-
-            if 'TR' in features:
-                base_TR=asset_data.ix[end_date,'TR']
-                asset_dict[str(asset)]['TR'] = asset_dict[str(asset)]['TR'] / base_TR
-
             asset_data=asset_data.fillna(method='bfill',axis=1)
             asset_data=asset_data.fillna(method='ffill',axis=1)#根据收盘价填充其他值
             #***********************open as preclose*******************#
             #asset_data=asset_data.dropna(axis=0,how='any')
-            asset_data=asset_data.drop(columns=['code'])
             asset_dict[str(asset)]=asset_data
 
 
         #开始生成tensor
         self.states=[]
         self.price_history=[]
-        print("*-------------Now Begin To Generate Tensor---------------*")
         t =self.L+1
-        while t<self.date_len:
+        length=len(self.date_set)
+        while t<length-1:
             V_close = np.ones(self.L)
             if 'high' in features:
                 V_high=np.ones(self.L)
@@ -108,18 +110,7 @@ class Environment:
                 V_open=np.ones(self.L)
             if 'low' in features:
                 V_low=np.ones(self.L)
-            if 'TV1' in features:
-                V_TV1=np.ones(self.L)
-            if 'TV2' in features:
-                V_TV2=np.ones(self.L)
-            if 'DA' in features:
-                V_DA=np.ones(self.L)
-            if 'TR' in features:
-                V_TR=np.ones(self.L)
-            if 'PE' in features:
-                V_PE=np.ones(self.L)
-            if 'PB' in features:
-                V_PB=np.ones(self.L)
+
 
             y=np.ones(1)
             state=[]
@@ -132,18 +123,6 @@ class Environment:
                     V_low=np.vstack((V_low,asset_data.ix[t-self.L-1:t-1,'low']))
                 if 'open' in features:
                     V_open=np.vstack((V_open,asset_data.ix[t-self.L-1:t-1,'open']))
-                if 'TV1' in features:
-                    V_TV1 = np.vstack((V_TV1, asset_data.ix[t - self.L - 1:t - 1, 'TV1']))
-                if 'TV2' in features:
-                    V_TV2 = np.vstack((V_TV2, asset_data.ix[t - self.L - 1:t - 1, 'TV2']))
-                if 'DA' in features:
-                    V_DA = np.vstack((V_DA, asset_data.ix[t - self.L - 1:t - 1, 'DA']))
-                if 'TR' in features:
-                    V_TR=np.vstack((V_TR,asset_data.ix[t-self.L-1:t-1,'TR']))
-                if 'PE' in features:
-                    V_PE=np.vstack((V_PE,asset_data.ix[t-self.L-1:t-1,'PE']))
-                if 'PB' in features:
-                    V_PB=np.vstack((V_PB,asset_data.ix[t-self.L-1:t-1,'PB']))
                 y=np.vstack((y,asset_data.ix[t,'close']/asset_data.ix[t-1,'close']))
             state.append(V_close)
             if 'high' in features:
@@ -152,18 +131,7 @@ class Environment:
                 state.append(V_low)
             if 'open' in features:
                 state = np.stack((state,V_open), axis=2)
-            if 'TV1' in features:
-                state = np.stack((state,V_TV1), axis=2)
-            if 'TV2' in features:
-                state = np.stack((state,V_TV2), axis=2)
-            if 'DA' in features:
-                state = np.stack((state,V_DA), axis=2)
-            if 'TR' in features:
-                state = np.stack((state,V_TR), axis=2)
-            if 'PE' in features:
-                state = np.stack((state,V_PE), axis=2)
-            if 'PB' in features:
-                state = np.stack((state,V_PB), axis=2)
+
             state=np.stack(state,axis=1)
             state = state.reshape(1, self.M, self.L, self.N)
             self.states.append(state)
@@ -172,14 +140,12 @@ class Environment:
         self.reset()
 
 
-    def first_ob(self):
-        return self.states[self.t]
-
-    def step(self,w1,w2):
+    def step(self,w1,w2,noise):
         if self.FLAG:
             not_terminal = 1
             price = self.price_history[self.t]
-            #price=price+np.stack(np.random.normal(0,0.002,(1,len(price))),axis=1)
+            if noise=='True':
+                price=price+np.stack(np.random.normal(0,0.002,(1,len(price))),axis=1)
             mu = self.cost * (np.abs(w2[0][1:] - w1[0][1:])).sum()
 
             # std = self.states[self.t - 1][0].std(axis=0, ddof=0)
@@ -197,7 +163,7 @@ class Environment:
 
             w2 = w2 / (np.dot(w2, price) + eps)
             self.t += 1
-            if self.t == len(self.states) - 1:
+            if self.t == len(self.states):
                 not_terminal = 0
                 self.reset()
 
@@ -206,9 +172,9 @@ class Environment:
                     'weight vector': w2, 'price': price,'risk':risk}
             return info
         else:
-            info = {'reward': 0, 'continue': 1, 'next state': self.states[self.L + 1],
-                    'weight vector': np.array([[1] + [0 for i in range(self.M-1)]]),
-                    'price': self.price_history[self.L + 1],'risk':0}
+            info = {'reward': 0, 'continue': 1, 'next state': self.states[self.t],
+                        'weight vector': np.array([[1] + [0 for i in range(self.M-1)]]),
+                        'price': self.price_history[self.t],'risk':0}
 
             self.FLAG=True
             return info
@@ -217,7 +183,5 @@ class Environment:
         self.t=self.L+1
         self.FLAG = False
 
-
-
-
-        
+    def get_codes(self):
+        return self.codes

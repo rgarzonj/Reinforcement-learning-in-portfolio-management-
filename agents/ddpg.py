@@ -41,15 +41,12 @@ def build_predictor(inputs, predictor, nes_num,scope,trainable):
             norm1 = tf.layers.batch_normalization(layer)
             x = tf.nn.relu(norm1)
 
-            for _ in range(nes_num):
-                x = res_block(x, trainable)
-
-            conv3_W = tf.Variable(tf.random_normal([1, 1, 32, 32], stddev=0.15), trainable=trainable)
+            conv3_W = tf.Variable(tf.random_normal([1, 1, 32, 1], stddev=0.15), trainable=trainable)
             conv3 = tf.nn.conv2d(x, filter=conv3_W, strides=[1, 1, 1, 1], padding='VALID')
             norm3 = tf.layers.batch_normalization(conv3)
             net = tf.nn.relu(norm3)
 
-            net = tf.layers.flatten(net)
+            net=tf.layers.flatten(net)
 
             return net
 
@@ -65,13 +62,12 @@ def variables_summaries(var,name):
 
 
 class StockActor:
-    def __init__(self,sess,predictor,M,L,N,batch_size):
+    def __init__(self,sess,predictor,M,L,N):
 
         #Initial hyperparaters
         self.tau=10e-3
-        self.learning_rate=10e-4
+        self.learning_rate=10e-2
         self.gamma=0.99
-        self.batch_size=batch_size
 
         #Initial session
         self.sess=sess
@@ -90,7 +86,7 @@ class StockActor:
 
         self.action_gradient=tf.placeholder(tf.float32,[None]+[self.M])
         self.unnormalized_actor_gradients=tf.gradients(self.out,self.network_params,-self.action_gradient)
-        self.actor_gradients =list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))#self.unnormalized_actor_gradients#list(map(lambda x: tf.div(x, 64), self.unnormalized_actor_gradients))
+        self.actor_gradients =self.unnormalized_actor_gradients#list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))#self.unnormalized_actor_gradients#list(map(lambda x: tf.div(x, 64), self.unnormalized_actor_gradients))
 
         # Optimization Op
         global_step = tf.Variable(0, trainable=False)
@@ -124,17 +120,7 @@ class StockActor:
             x=build_predictor(inputs,predictor,1,scope,trainable=trainable)
             actions_previous=tf.placeholder(tf.float32,shape=[None]+[self.M])
 
-            t1_w = tf.Variable(tf.truncated_normal([int(x.shape[1]), 32], stddev=0.15), name='t1_w')
-            t1_b = tf.Variable(tf.constant(0.0, shape=[32]), name='t1_b')
-            t1=tf.matmul(x,t1_w)+t1_b
-            #t1=tf.nn.dropout(t1, keep_prob=0.1)
-
-            t2_w = tf.Variable(tf.truncated_normal([int(actions_previous.shape[1]), 32], stddev=0.15))
-            t2_b = tf.Variable(tf.constant(0.0, shape=[32]))
-            t2 = tf.matmul(actions_previous, t2_w) + t2_b
-            #t2=tf.nn.dropout(t2, keep_prob=0.1)
-
-            net = tf.add(t1, t2)
+            net = tf.add(x,actions_previous)
             w_init=tf.random_uniform_initializer(-0.003,0.003)
             out=tf.layers.dense(net,self.M,activation=tf.nn.softmax,kernel_initializer=w_init)
 
@@ -211,29 +197,8 @@ class StockCritic:
             actions_previous=tf.placeholder(tf.float32,shape=[None]+[self.M])
             net = build_predictor(states, predictor,5,scope,trainable)
 
-            t1_w=tf.Variable(tf.truncated_normal([int(net.shape[1]),64],stddev=0.15))
-            t1_b=tf.Variable(tf.constant(0.0,shape=[64]))
-            t1=tf.matmul(net,t1_w)+t1_b
-            t1=tf.nn.dropout(t1, keep_prob=0.2)
-
-
-            t2_w = tf.Variable(tf.truncated_normal([int(actions.shape[1]), 64], stddev=0.15))
-            t2_b = tf.Variable(tf.constant(0.0, shape=[64]))
-            t2 = tf.matmul(actions, t2_w) + t2_b
-            t2=tf.nn.dropout(t2, keep_prob=0.2)
-
-
-            t3_w = tf.Variable(tf.truncated_normal([int(actions.shape[1]), 64], stddev=0.15))
-            t3_b = tf.Variable(tf.constant(0.0, shape=[64]))
-            t3 = tf.matmul(actions_previous, t3_w) + t3_b
-
-            net = tf.add(t1, t2)
-            net = tf.add(net, t3)
-            net=tf.layers.batch_normalization(net)
-
-
-            net = tf.nn.relu(net)
-            net=tf.nn.dropout(net,keep_prob=0.5)
+            net = tf.add(net, actions)
+            net = tf.add(net,actions_previous)
 
             out = tf.layers.dense(net, 1, kernel_initializer=tf.random_uniform_initializer(-0.003, 0.003))
 
@@ -276,13 +241,11 @@ class DDPG:
     def __init__(self,predictor,M,L,N,name,load_weights,trainable):
         # Initial buffer
         self.buffer = list()
-        self.buffer_size = 640
-        self.batch_size = 32
         self.name=name
 
         #Build up models
         self.sesson = tf.Session()
-        self.actor=StockActor(self.sesson,predictor,M,L,N,self.batch_size)
+        self.actor=StockActor(self.sesson,predictor,M,L,N)
         self.critic=StockCritic(self.sesson,predictor,M,L,N)
 
 
@@ -323,21 +286,16 @@ class DDPG:
     #     return self.actor.predict_target(s)
 
     def save_transition(self,s,w,r,not_terminal,s_next,action_previous):
-        if len(self.buffer)>self.buffer_size:
-            self.buffer.pop(0)
         self.buffer.append((s,w[0],r,not_terminal,s_next,action_previous))
 
     def train(self,method,epoch):
         info = dict()
-        if len(self.buffer)<self.buffer_size:
-            info["critic_loss"],info["q_value"],info["actor_loss"]= 0,0,0
-            return info
 
         s,a,r,not_terminal,s_next,a_previous=self.get_transition_batch()
         target_q=self.critic.preditc_target(s_next,self.actor.predict_target(s_next,a_previous),a_previous)
 
         y_i=[]
-        for i in range(self.batch_size):
+        for i in range(len(s_next)):
                 y_i.append(r[i]+not_terminal[i]*self.gamma*target_q[i])
 
         critic_loss,q_value=self.critic.train(s,a,np.reshape(y_i,(-1,1)),a_previous)
@@ -364,7 +322,7 @@ class DDPG:
 
 
     def get_transition_batch(self):
-        minibatch =random.sample(self.buffer, self.batch_size)
+        minibatch =self.buffer
         s = [data[0][0] for data in minibatch]
         a = [data[1] for data in minibatch]
         r = [data[2] for data in minibatch]
@@ -386,3 +344,5 @@ class DDPG:
         })
         self.summary_writer.add_summary(summary_str, epoch)
 
+    def reset_buffer(self):
+        self.buffer=list()
