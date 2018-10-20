@@ -7,8 +7,8 @@ Motivated by "A Deep Reinforcement Learning Framework for the Financial Portfoli
 + Experiments on different settings, such as changing learning rates, optimizers, neutral network structures, China/America Stock data, initializers, noise, features to figure out their influence on the RL agents' performance (cumulative return).
 
 ## History
-2018/8/29 Version 1
-2018/10/20 Version 2
++ 2018/8/29 Version 1
++ 2018/10/20 Version 2
 
 ## Using the environment
 
