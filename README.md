@@ -6,6 +6,10 @@ Motivated by "A Deep Reinforcement Learning Framework for the Financial Portfoli
 + Implement two state-of-art continuous deep reinforcement learning algorithms, Deep Deterministic Policy Gradient (DDPG), Proximal Policy Optimization (PPO) and compared them with PG in Finance purposed by Jiang et. al. in portfolio management. 
 + Experiments on different settings, such as changing learning rates, optimizers, neutral network structures, China/America Stock data, initializers, noise, features to figure out their influence on the RL agents' performance (cumulative return).
 
+## History
+2018/8/29 Version 1
+2018/10/20 Version 2
+
 ## Using the environment
 
 The environment provides supports for easily testing different reinforcement learning in portfolio management.
