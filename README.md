@@ -66,6 +66,7 @@ Backtest the network in subfolder named 1
 ## Result
 + Training data (USA)_DDPG
   ![USA](image/USA.png)
+  
 + Training data (China)_DDPG
   ![China](image/China.png)
 
