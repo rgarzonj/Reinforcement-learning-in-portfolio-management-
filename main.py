@@ -238,20 +238,28 @@ def session(config,args):
     PATH_prefix = "result/PG/" + str(args['num']) + '/'
 
     if args['mode']=='train':
-        train_start_date, train_end_date, test_start_date, test_end_date, codes = env.get_repo(start_date, end_date,
-                                                                                               codes, market)
-        env.get_data(train_start_date, train_end_date, features, window_length,market,codes)
-        print("Codes:", codes)
-        print('Training Time Period:', train_start_date, '   ', train_end_date)
-        print('Testing Time Period:', test_start_date, '   ', test_end_date)
         if not os.path.exists(PATH_prefix):
             os.makedirs(PATH_prefix)
-        with open(PATH_prefix+'config.json', 'w') as f:
-            json.dump({"train_start_date": train_start_date.strftime('%Y-%m-%d'),
-                       "train_end_date": train_end_date.strftime('%Y-%m-%d'),
-                       "test_start_date": test_start_date.strftime('%Y-%m-%d'),
-                       "test_end_date": test_end_date.strftime('%Y-%m-%d'), "codes": codes}, f)
-            print("finish writing config")
+            train_start_date, train_end_date, test_start_date, test_end_date, codes = env.get_repo(start_date, end_date,
+                                                                                                   codes, market)
+            env.get_data(train_start_date, train_end_date, features, window_length, market, codes)
+            print("Codes:", codes)
+            print('Training Time Period:', train_start_date, '   ', train_end_date)
+            print('Testing Time Period:', test_start_date, '   ', test_end_date)
+            with open(PATH_prefix + 'config.json', 'w') as f:
+                json.dump({"train_start_date": train_start_date.strftime('%Y-%m-%d'),
+                           "train_end_date": train_end_date.strftime('%Y-%m-%d'),
+                           "test_start_date": test_start_date.strftime('%Y-%m-%d'),
+                           "test_end_date": test_end_date.strftime('%Y-%m-%d'), "codes": codes}, f)
+                print("finish writing config")
+        else:
+            with open("result/PG/" + str(args['num']) + '/config.json', 'r') as f:
+                dict_data = json.load(f)
+                print("successfully load config")
+            train_start_date, train_end_date, codes = datetime.datetime.strptime(dict_data['train_start_date'],
+                                                                               '%Y-%m-%d'), datetime.datetime.strptime(
+                dict_data['train_end_date'], '%Y-%m-%d'), dict_data['codes']
+            env.get_data(train_start_date, train_end_date, features, window_length, market, codes)
 
         for noise_flag in ['True']:#['False','True'] to train agents with noise and without noise in assets prices
             if framework == 'PG':
