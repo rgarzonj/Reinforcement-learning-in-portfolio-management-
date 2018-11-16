@@ -71,10 +71,10 @@ python main.py --mode=test
 
 + Adversarial Training
 
-  ![noise](noise.png)
+  ![noise](result/noise.png)
 
 + Backtest (China)
-  ![Final](Final.png)
+  ![Final](result/Final.png)
 
 + APV under different feature combinations
   ![features_reward](result/features_reward.png)
