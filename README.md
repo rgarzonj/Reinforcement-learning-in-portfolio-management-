@@ -1,10 +1,5 @@
 # Reinforcement learning in portfolio management
 
-## History
-+ 2018.8.29 Version 1
-+ 2018.10.20 Version 2
-+ 2018.11.27  Final Version
-
 ## Introduction
 
 Motivated by "A Deep Reinforcement Learning Framework for the Financial Portfolio Management Problem" by [Jiang et. al. 2017](https://arxiv.org/abs/1706.10059) [1]. In this project:
@@ -80,6 +75,8 @@ python main.py --mode=test
 
 + Backtest (China)
   ![Final](result/Final.png)
+
+  ![56](result/56.png)
 
 + APV under different feature combinations
   ![features_reward](result/features_reward.png)
