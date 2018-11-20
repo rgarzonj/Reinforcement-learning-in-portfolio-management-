@@ -81,7 +81,8 @@ python main.py --mode=test
 + APV under different feature combinations
   ![features_reward](result/features_reward.png)
 
-**The other results can be found in our report.**
+**The other results can be found in our paper.**
+(http://arxiv.org/abs/1808.09940)
 
 
 
