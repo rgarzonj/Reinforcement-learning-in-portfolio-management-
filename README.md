@@ -122,7 +122,7 @@ Modules needed
 ## Contact
 
 + liangzhp6@mail2.sysu.edu.cn
-+ chenhao8@mail2.sysu.edu.cn
++ chenh348@mail2.sysu.edu.cn
 + zhujh25@mail2.sysu.edu.cn
 + jiangkk3@mail2.sysu.edu.cn
 + liyr8@mail2.sysu.edu.cn
