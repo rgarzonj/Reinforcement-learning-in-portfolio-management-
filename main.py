@@ -15,11 +15,15 @@ import os
 import seaborn as sns
 sns.set_style("darkgrid")
 
+from explogger import ExpLogger
 
 eps=10e-8
 epochs=0
 M=0
 PATH_prefix=''
+
+#Experiment Logger
+el = ExpLogger()
 
 class StockTrader():
     def __init__(self):
@@ -129,7 +133,6 @@ def backtest(agent,env):
     from agents.Winner import WINNER
     from agents.Losser import LOSSER
 
-
     agents=[]
     agents.extend(agent)
     agents.append(WINNER())
@@ -161,18 +164,22 @@ def backtest(agent,env):
         print('finish one agent')
         wealths_result.append(wealths)
         rs_result.append(rs)
-
-    print('资产名称','   ','平均日收益率','   ','夏普率','   ','最大回撤')
+    print('Agent Name','   ','Average daily return rate','   ','Sharpe Ratio','   ','Maximum Draw Down')
+#    print('资产名称','   ','平均日收益率','   ','夏普率','   ','最大回撤')
     plt.figure(figsize=(8, 6), dpi=100)
     for i in range(len(agents)):
         plt.plot(wealths_result[i],label=labels[i])
         mrr=float(np.mean(rs_result[i])*100)
         sharpe=float(np.mean(rs_result[i])/np.std(rs_result[i])*np.sqrt(252))
         maxdrawdown=float(max(1-min(wealths_result[i])/np.maximum.accumulate(wealths_result[i])))
+        el.logResults(labels[i],'mrr',mrr)
+        el.logResults(labels[i],'sharpe',sharpe)
+        el.logResults(labels[i],'maxdrawdown',maxdrawdown)
         print(labels[i],'   ',round(mrr,3),'%','   ',round(sharpe,3),'  ',round(maxdrawdown,3))
     plt.legend()
     plt.savefig(PATH_prefix+'backtest.png')
     plt.show()
+    el.saveResults(PATH_prefix+'results.json')
 
 def parse_config(config,mode):
     codes = config["session"]["codes"]
@@ -309,6 +316,8 @@ def main():
             data_downloader=DataDownloader(config)
             data_downloader.save_data()
         else:
+            print (config)
+            el.logConfig(json.dumps(config))
             session(config,args)
 
 if __name__=="__main__":

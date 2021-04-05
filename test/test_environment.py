@@ -30,9 +30,9 @@ class Test_Environment(unittest.TestCase):
         self.assertTrue(len(self.env.states)>0) # states has shape (1,6,10,2) 1,codes_num+1,window_length, features
         self.assertTrue(len(self.env.price_history)>0) #price_history has shape (6,1) codes_num + 1 ; 
         #First element in price_history is always 1, means cash
-        print (self.env.states[0].shape)
-        print (self.env.price_history[0].shape)
-        print (self.env.price_history[0])
+        #print (self.env.states[0].shape)
+        #print (self.env.price_history[0].shape)
+        #print (self.env.price_history[0])
 
     def test_get_repo(self):
         with open('config.json') as f:
@@ -54,12 +54,12 @@ class Test_Environment(unittest.TestCase):
         info = self.env.step(None,None,noise_flag)
         # dict_keys(['reward', 'continue', 'next state', 'weight vector', 'price', 'risk'])
         #print (info.keys())
-        print (info['reward']) # Reward is an integer
-        print (info['continue']) # continue is True/False
-        print (info['next state'].shape) # Shape for next state is (1,6,10,2)
-        print (info['weight vector'].shape) # Shape for weight vector is (1,6)
-        print (info['price'].shape) #Shape for price is 6,1)
-        print (info['risk']) #Risk is an integer
+        #print (info['reward']) # Reward is an integer
+        #print (info['continue']) # continue is True/False
+        #print (info['next state'].shape) # Shape for next state is (1,6,10,2)
+        #print (info['weight vector'].shape) # Shape for weight vector is (1,6)
+        #print (info['risk']) #Risk is an integer
+        #print (info['price'].shape) #Shape for price is 6,1)
         self.assertEqual(len(info.keys(),6))
 
 
